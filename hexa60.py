@@ -119,6 +119,10 @@ def encode_chunked(data: bytes) -> str:
             f"encode_chunked() expects a bytes-like object, got "
             f"{type(data).__name__}"
         )
+    if not isinstance(data, bytes):
+        # int.from_bytes accepts bytearray but not reliably memoryview across
+        # versions, and the slicing below assumes a bytes-like result.
+        data = bytes(data)
     if not data:
         return ""
     end = len(data) - len(data) % CHUNK_BYTES
@@ -198,6 +202,9 @@ def encode(data: bytes) -> str:
         raise TypeError(
             f"encode() expects a bytes-like object, got {type(data).__name__}"
         )
+    if not isinstance(data, bytes):
+        # memoryview has no lstrip; normalise before the byte-level work below.
+        data = bytes(data)
     if not data:
         return ""
     zeros = len(data) - len(data.lstrip(b"\x00"))

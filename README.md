@@ -303,6 +303,27 @@ aliases cannot decode records stored under the old format.
 
 ---
 
+## Input validation
+
+`encode()` and `encode_chunked()` accept any bytes-like object — `bytes`,
+`bytearray` or `memoryview` — and raise `TypeError` for anything else. An empty
+input encodes to `""`, which is the encoding of `b""`.
+
+> **Note (1.0.1):** these encoders previously began with `if not data: return ""`,
+> which is also true for `None`. `encode(None)` returned an empty string instead
+> of reporting the type error, so a caller that lost its buffer received a silent
+> empty result that round-trips to `b""` and looks like valid data. It now raises.
+
+`decode()` is strict by default and raises `InvalidCharacterError`.
+
+`decode_chunked()` is **lenient** by default: with `strict=False` it silently
+strips characters outside the alphabet. In a chunked payload this shifts every
+subsequent block boundary, so corrupted input can decode to entirely different
+bytes without any error. Pass `strict=True` when the input is not already
+trusted, and see the 1.0.1 entry in `CHANGELOG.md`.
+
+---
+
 ## Licensing
 
 HEXA60 is published under a **Dual-Licensing Model**:

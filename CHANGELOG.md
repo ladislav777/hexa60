@@ -4,6 +4,56 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-10-01
+
+Patch release. No wire-format change: every string produced by 1.0.0 decodes
+identically here, and the alphabet, chunking and tail tables are untouched.
+
+### Added
+
+- `tests/test_codec_boundaries.py`: 75 tests covering the alphabet invariants,
+  the `TAIL_CHARS` capacity formula (including minimality, not just
+  sufficiency), the unique-residue property that lets the tail length be
+  recovered from `len(text) % 11`, and the maximum and first-overflow value
+  for every tail width from 1 to 7 bytes, both standalone and after a full
+  11-character block. Test values are re-derived from the positional
+  definition against a literal copy of the alphabet, so the suite is
+  independent of the encoder under test.
+- A C++20 badge in the README, and corrected badge targets: the licence badge
+  pointed at a `LICENSE.md` that does not exist, and the Python badge claimed
+  3.8+ while the package requires 3.9.
+
+### Fixed
+
+- `encode()` and `encode_chunked()` began with `if not data: return ""`, which is
+  true for `None` as well as for `b''`. `encode(None)` therefore returned an
+  empty string rather than reporting the type error, so a caller that lost its
+  buffer got a silent empty result that round-trips to `b''` and looks like valid
+  data. Both now require a bytes-like object and raise `TypeError` otherwise.
+  `bytes_to_base60` is a direct alias of `encode` and inherits the guard.
+  `b''` still encodes to `""`.
+- `memoryview` input is normalised to `bytes` in both encoders. It has no
+  `lstrip`, so the bulk encoder raised `AttributeError` on it. `bytes`,
+  `bytearray` and `memoryview` now all encode identically.
+
+### Changed
+
+- `CONTRIBUTING-v2.md` and `SECURITY-v2.md` renamed to `CONTRIBUTING.md` and
+  `SECURITY.md` so GitHub resolves them. `LICENSE-v2.md` keeps its name: it is
+  referenced by `pyproject.toml` and by the published 1.0.0 metadata.
+- Added `README.md` alongside `README-v2.md`. GitHub renders only `README.md`,
+  so the repository landing page previously showed no README at all.
+
+### Not changed in this release
+
+- `decode_chunked()` still defaults to `strict=False`, which strips characters
+  outside the alphabet instead of raising. Retaining the lenient default was
+  deliberate: changing it is a behaviour change, not a patch. Note that in a
+  chunked payload this shifts every subsequent block boundary, so corrupted
+  input can decode to entirely different bytes without any error. A future
+  1.1.0 or 2.0.0 should either default to `strict=True` or warn; see
+  `test_non_strict_decode_drops_invalid_characters` for the current semantics.
+
 ## [1.0.0] - 2026-10-01
 
 First release of the unified core. The Python package and the C++20 library now

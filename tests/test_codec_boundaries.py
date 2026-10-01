@@ -276,3 +276,21 @@ def test_bulk_encode_rejects_non_bytes(bad):
     with pytest.raises(TypeError):
         encode(bad)
 
+
+@pytest.mark.parametrize("factory", [bytes, bytearray, memoryview])
+@pytest.mark.parametrize("encoder", [encode, encode_chunked])
+def test_bytes_like_input_is_accepted(factory, encoder):
+    """bytes, bytearray and memoryview must all encode identically.
+
+    memoryview needed an explicit conversion: it has no lstrip, so the bulk
+    encoder raised AttributeError on it when the type guard was first added.
+    """
+    assert encoder(factory(b"\xff\xff")) == encoder(b"\xff\xff")
+    assert encoder(factory(b"")) == ""
+
+
+@pytest.mark.parametrize("factory", [bytearray, memoryview])
+def test_decoders_accept_bytes_like(factory):
+    assert decode_chunked(encoder_text := encode_chunked(factory(b"\xff\xff")))
+    assert decode_chunked(encoder_text) == b"\xff\xff"
+
