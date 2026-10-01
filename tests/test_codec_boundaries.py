@@ -39,6 +39,7 @@ from hexa60 import (
     InvalidCharacterError,
     LengthError,
     decode_chunked,
+    encode,
     encode_chunked,
 )
 
@@ -262,25 +263,16 @@ def test_decode_rejects_non_str(bad):
         decode_chunked(bad)
 
 
-@pytest.mark.parametrize("bad", [["4F"], 4.5])
+@pytest.mark.parametrize("bad", [None, "data", 123, ["4F"], 4.5])
 def test_encode_rejects_non_bytes(bad):
-    with pytest.raises((TypeError, AttributeError)):
+    with pytest.raises(TypeError):
         encode_chunked(bad)
 
 
-@pytest.mark.xfail(
-    reason="encode_chunked(b'') and encode_chunked(None) both return '' "
-           "because 'if not data' is true for None as well as b''. bytes input "
-           "is the intended type and works correctly; only the non-bytes "
-           "falsy values slip through unvalidated.",
-    strict=True,
-)
-def test_encode_chunked_does_not_silently_accept_none():
-    """Known gap: None is accepted where bytes were required.
-
-    Kept as xfail(strict=True) so it flips to a failure the moment the guard
-    is tightened, rather than being quietly forgotten.
-    """
+@pytest.mark.parametrize("bad", [None, "data", 123, ["4F"], 4.5])
+def test_bulk_encode_rejects_non_bytes(bad):
+    """The bulk encoder had the same hole: 'if not data' is true for None, so
+    encode(None) returned '' instead of reporting the type error."""
     with pytest.raises(TypeError):
-        encode_chunked(None)
+        encode(bad)
 

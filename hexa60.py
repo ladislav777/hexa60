@@ -114,6 +114,11 @@ def _encode_fixed(num, width):
 
 def encode_chunked(data: bytes) -> str:
     """bytes -> HEXA60 text, 8 bytes -> 11 chars, O(N). Wire format."""
+    if not isinstance(data, (bytes, bytearray, memoryview)):
+        raise TypeError(
+            f"encode_chunked() expects a bytes-like object, got "
+            f"{type(data).__name__}"
+        )
     if not data:
         return ""
     end = len(data) - len(data) % CHUNK_BYTES
@@ -189,6 +194,10 @@ def encode(data: bytes) -> str:
     following the base58/base62 convention.
     Empty input returns "". All-zero input returns a run of '0' characters.
     """
+    if not isinstance(data, (bytes, bytearray, memoryview)):
+        raise TypeError(
+            f"encode() expects a bytes-like object, got {type(data).__name__}"
+        )
     if not data:
         return ""
     zeros = len(data) - len(data.lstrip(b"\x00"))
