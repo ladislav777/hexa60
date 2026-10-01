@@ -50,9 +50,10 @@ dev = ["pytest>=7.0"]
 tensor = ["torch>=2.0", "numpy>=1.24"]
 
 [project.urls]
-Homepage = "https://github.com/muller-hexa60/hexa60"
-Documentation = "https://github.com/muller-hexa60/hexa60#readme"
-Repository = "https://github.com/muller-hexa60/hexa60"
+Homepage = "https://github.com/ladislav777/hexa60"
+Documentation = "https://github.com/ladislav777/hexa60#readme"
+Repository = "https://github.com/ladislav777/hexa60.git"
+Changelog = "https://github.com/ladislav777/hexa60/blob/main/CHANGELOG.md"
 
 [tool.setuptools]
 py-modules = ["hexa60", "base60_int", "base60_arithmetic"]
