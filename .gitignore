@@ -5,3 +5,17 @@ __pycache__/
 build/
 dist/
 .venv/
+
+# Credentials -- must never be committed.
+# PyPI upload tokens, twine config, and environment files.
+.pypirc
+.env
+.env.*
+*.pem
+*.key
+
+# Editor / OS noise
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
