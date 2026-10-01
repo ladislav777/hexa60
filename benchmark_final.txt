@@ -1,0 +1,17 @@
+=== ADDITION BENCHMARK ===
+1+1: avg 1.85 us (1000 runs)
+W+W: avg 2.37 us (1000 runs)
+100+50: avg 2.55 us (1000 runs)
+ZZZZ+ZZZZ: avg 8.71 us (1000 runs)
+
+=== MULTIPLICATION BENCHMARK ===
+2*3: avg 3.95 us (1000 runs)
+W*W: avg 7.91 us (1000 runs)
+100*50: avg 9.66 us (1000 runs)
+ZZ*ZZ: avg 12.71 us (1000 runs)
+
+=== FRACTION BENCHMARK ===
+1/2: avg 79.31 us (1000 runs)
+1/3: avg 54.56 us (1000 runs)
+1/4: avg 47.31 us (1000 runs)
+1/6: avg 31.77 us (1000 runs)

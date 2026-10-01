@@ -1,0 +1,62 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hexa60"
+version = "1.0.0"
+description = "Canonical Base60 codec, arbitrary-precision arithmetic, and high-performance tensor operations in Python and C++20."
+authors = [
+    { name = "Ladislav Muller", email = "mullerladislav20@gmail.com" }
+]
+readme = "README-v2.md"
+requires-python = ">=3.9"
+# SPDX expression form. setuptools >= 77 deprecates the TOML-table form
+# (`license = { text = ... }`), and a License classifier alongside it.
+# Both were removed by 2027-Feb-18; use the string plus license-files.
+license = "AGPL-3.0-or-later"
+license-files = ["LICENSE-v2.md"]
+keywords = ["base60", "encoding", "codec", "arithmetic", "tensor", "crypto", "sexagesimal"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    # NOTE: no "License ::" classifier. setuptools >= 77 warns that license
+    # classifiers are deprecated because `license` already carries the SPDX
+    # expression above. Keeping both produces a duplicate-declaration warning.
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: C++",
+    "Topic :: Security :: Cryptography",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = []
+
+# NOTE: `py-modules` is a [tool.setuptools] key, NOT a [project] one. PEP 621
+# reserves [project] for a fixed set of keys, and setuptools >= 77 warns or
+# errors on unknown ones. It is declared once, in [tool.setuptools] below.
+# Duplicating it in [project] is a copy/paste mistake that breaks the build
+# on newer setuptools.
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+# Batch arithmetic in experiments/base60_tensor.py needs torch + numpy.
+# Deliberately NOT in dev: the core (hexa60, base60_int, base60_arithmetic) has
+# no dependencies and tests/ does not need torch. To run the tensor tests:
+#   pip install -e ".[tensor]" && pytest experiments/test_base60_tensor.py
+tensor = ["torch>=2.0", "numpy>=1.24"]
+
+[project.urls]
+Homepage = "https://github.com/muller-hexa60/hexa60"
+Documentation = "https://github.com/muller-hexa60/hexa60#readme"
+Repository = "https://github.com/muller-hexa60/hexa60"
+
+[tool.setuptools]
+py-modules = ["hexa60", "base60_int", "base60_arithmetic"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]

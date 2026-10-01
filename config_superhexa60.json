@@ -1,0 +1,8 @@
+{
+  "BASE": 60,
+  "STEPS": 9,
+  "epochs": 5000,
+  "lr": 0.001,
+  "hidden_dim": 128,
+  "model_path": "models/laci_hexa60_v5.pt"
+}
