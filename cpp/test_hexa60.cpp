@@ -857,13 +857,17 @@ TEST(CrossModuleTensorMatchesInt) {
 // ===========================================================================
 // Entry point
 // ===========================================================================
-int main() {
+int main(int argc, char** argv) {
 #ifdef HEXA60_NO_GTEST
-    // NOTE: write the report ourselves with std::ofstream. Shell redirection
-    // into these paths proved unreliable in the dev environment, and a test
-    // runner that produces no output is useless.
-    std::ofstream out("C:/BASE60/cpp/_tests_report.txt",
-                      std::ios::out | std::ios::trunc);
+    // Report location: argv[1] if given, else "./_tests_report.txt".
+    //
+    // This used to be a hard-coded absolute path ("C:/BASE60/cpp/..."), which
+    // was wrong: running the suite from a fresh clone wrote the report back
+    // into the developer's original checkout instead of next to the clone.
+    // argv is used rather than getenv because MSVC warns C4996 for it at /W4.
+    const std::string report =
+        (argc > 1) ? std::string(argv[1]) : std::string("_tests_report.txt");
+    std::ofstream out(report, std::ios::out | std::ios::trunc);
     if (!out) return 99;
     int run = 0;
     for (const auto& c : harness::cases()) {

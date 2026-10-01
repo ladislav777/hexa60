@@ -25,12 +25,12 @@ else()
 endif()
 
 # ---------------------------------------------------------------- tests
-# Two modes:
+# Two modes, selected with -DHEXA60_USE_GTEST=ON or OFF (default OFF):
 #
-#   HEXA60_TESTS=standalone  (default) -- build the test suite with a tiny
-#                                  built-in harness, no external dependency.
-#   HEXA60_TESTS=gtest                 -- build against a real GoogleTest,
-#                                  located via find_package.
+#   OFF (default) -- build the test suite with a tiny built-in harness, no
+#                    external dependency.
+#   ON            -- build against a real GoogleTest, located via
+#                    find_package.
 #
 # The test file compiles in both modes: without HEXA60_NO_GTEST it uses
 # gtest macros, with it the local harness.

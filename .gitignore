@@ -19,3 +19,13 @@ dist/
 .idea/
 Thumbs.db
 .DS_Store
+
+# C++ build artifacts
+*.obj
+*.o
+*.exe
+*.pdb
+*.ilk
+cpp/_b/
+cpp/build/
+_tests_report.txt
