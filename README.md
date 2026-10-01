@@ -5,17 +5,6 @@
 [![C++ Standard](https://img.shields.io/badge/c%2B%2B-20-blue.svg)](cpp/)
 [![Code Style](https://img.shields.io/badge/code%20style-pep8-green.svg)](https://www.python.org/dev/peps/pep-0008/)
 
-<!--
-NOTE: this file is a copy of README-v2.md, kept in sync manually.
-
-GitHub renders only README.md, so the canonical name has to be README.md for
-the repository landing page to show anything. PyPI, however, reads the `readme`
-key in pyproject.toml, which points at README-v2.md, and that is baked into the
-published 1.0.0 metadata. Renaming would therefore break the existing release.
-
-If you edit this file, apply the same edit to README-v2.md.
--->
-
 **HEXA60** is a deterministic, high-performance binary-to-text encoding scheme engineered specifically for transport safety across modern network protocols, web APIs, biometrics, and database storage.
 
 Unlike traditional Base64 (which requires characters like `+`, `/`, and `=`) or Base58, HEXA60 uses an **identifier-safe 60-character alphabet**. It eliminates all characters requiring URL percent-encoding, regex escaping, or special handling in HTTP headers, QR codes, and SQL queries.

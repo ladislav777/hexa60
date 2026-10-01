@@ -41,8 +41,12 @@ identically here, and the alphabet, chunking and tail tables are untouched.
 - `CONTRIBUTING-v2.md` and `SECURITY-v2.md` renamed to `CONTRIBUTING.md` and
   `SECURITY.md` so GitHub resolves them. `LICENSE-v2.md` keeps its name: it is
   referenced by `pyproject.toml` and by the published 1.0.0 metadata.
-- Added `README.md` alongside `README-v2.md`. GitHub renders only `README.md`,
-  so the repository landing page previously showed no README at all.
+- `README-v2.md` removed and `pyproject.toml` now reads `README.md`. From 1.0.0
+  the two README files were duplicates kept in sync by hand, because GitHub
+  renders only `README.md` while the published 1.0.0 metadata had
+  `readme = "README-v2.md"` baked into it. That constraint applied only to the
+  already-published 1.0.0, which keeps its own metadata; 1.0.1 and later use the
+  single canonical file.
 
 ### Not changed in this release
 

@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hexa60"
-version = "1.0.0"
+version = "1.0.1"
 description = "Canonical Base60 codec, arbitrary-precision arithmetic, and high-performance tensor operations in Python and C++20."
 authors = [
     { name = "Ladislav Muller", email = "mullerladislav20@gmail.com" }
 ]
-readme = "README-v2.md"
+readme = "README.md"
 requires-python = ">=3.9"
 # SPDX expression form. setuptools >= 77 deprecates the TOML-table form
 # (`license = { text = ... }`), and a License classifier alongside it.
