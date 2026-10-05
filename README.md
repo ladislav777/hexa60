@@ -261,7 +261,7 @@ base60_fraction("1", "2")     # '0.W'      -- 30/60
 base60_fraction("1", "4")     # '0.F'      -- 15/60
 base60_fraction("1", "5")     # '0.C'      -- 12/60
 base60_fraction("1", "6")     # '0.A'      -- 10/60
-base60_fraction("1", "60")    # '0.00F'    -- 15/60^3, "60" == 60
+base60_fraction("1", "60")    # '0.0A'     -- 10/60^2, "60" == 60
 base60_fraction("2", "3")     # '0.g'      -- 40 + 20 + 20 ... = 0.666...
 base60_fraction("1", "7")     # '0.8aH'    -- cycle 8,a,H (60 == 4 mod 7)
 ```

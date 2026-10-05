@@ -28,6 +28,9 @@ using a literal copy of the alphabet, so that a change to hexa60.ALPHABET is
 caught here instead of being silently mirrored.
 """
 
+import re
+from pathlib import Path
+
 import pytest
 
 from hexa60 import (
@@ -106,6 +109,47 @@ def test_tail_residues_are_unique():
     sharing a char count would make the tail ambiguous."""
     residues = [chars % CHUNK_CHARS for chars in TAIL_CHARS.values()]
     assert len(set(residues)) == len(residues)
+
+
+# ---------------------------------------------------------------------------
+# README examples
+# ---------------------------------------------------------------------------
+
+README_PATH = (
+    Path(__file__).resolve().parent.parent / "README.md"
+)
+
+
+def _readme_fraction_examples():
+    """Parse `base60_fraction("1", "3")   # '0.L'` pairs out of the README.
+
+    The README is the PyPI long description, so a wrong example there is public.
+    They were hand-written and one was wrong: 1/3600 was documented as '0.00F'
+    when it is '0.0A'. This test derives the expected value instead of trusting
+    the comment.
+    """
+    if not README_PATH.is_file():
+        return []
+    pattern = re.compile(
+        r'base60_fraction\("([^"]+)",\s*"([^"]+)"\)\s*#\s*\'([^\']+)\''
+    )
+    return pattern.findall(README_PATH.read_text(encoding="utf-8"))
+
+
+@pytest.mark.parametrize("num,den,documented", _readme_fraction_examples())
+def test_readme_fraction_examples_are_correct(num, den, documented):
+    from base60_arithmetic import base60_fraction
+
+    assert base60_fraction(num, den) == documented
+
+
+def test_readme_alphabet_matches_implementation():
+    """The README prints the alphabet in a code block; it must be the real one."""
+    if not README_PATH.is_file():
+        pytest.skip("README.md not present (installed package)")
+    text = README_PATH.read_text(encoding="utf-8")
+    assert ALPHABET in text
+    assert REFERENCE_ALPHABET in text
 
 
 

@@ -29,6 +29,16 @@ identically here, and the alphabet, chunking and tail tables are untouched.
   this corrects it for 1.0.1. The section now also states which characters are
   excluded and why, that `-` is the digit 59 rather than a sign, and that the
   Python, C++ and test copies must stay bit-identical.
+- A periodic-fraction example was wrong: `base60_fraction("1", "60")` was
+  documented as `'0.00F'`, which is `15/60^3`, but `"60"` is the Base-60 number
+  sixty, so dividing 1 by it gives `'0.0A'` = `10/60^2`. The README is the PyPI
+  long description, so this was public.
+
+The suite now derives its expectations from the README rather than trusting it:
+`test_readme_fraction_examples_are_correct` parses each documented example and
+recomputes it, and `test_readme_alphabet_matches_implementation` asserts the
+printed alphabet is the real one. Both were confirmed to fail on a deliberately
+reintroduced error before being left in place.
 
 ### Fixed
 
