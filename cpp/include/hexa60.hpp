@@ -1,3 +1,12 @@
+// ============================================================================
+// HEXA-60 CORE™ — High-Throughput Base60 Encoding Engine
+// Copyright (c) 2026 Ladislav Müller (IČO: 40189589). All rights reserved.
+//
+// PROPRIETARY AND CONFIDENTIAL SOFTWARE.
+// Unauthorized copying, distribution, or modification of this file, via any
+// medium, is strictly prohibited under applicable copyright laws and B2B EULA.
+// ============================================================================
+
 // hexa60.hpp -- umbrella header pulling in every module.
 //
 // Header-only, C++20, zero external dependencies. Just include this and you

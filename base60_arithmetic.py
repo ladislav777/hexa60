@@ -1,8 +1,21 @@
+# ============================================================================
+# HEXA-60 CORE™ — High-Throughput Base60 Encoding Engine
+# Copyright (c) 2026 Ladislav Müller (IČO: 40189589). All rights reserved.
+#
+# PROPRIETARY AND CONFIDENTIAL SOFTWARE.
+# Unauthorized copying, distribution, or modification of this file, via any
+# medium, is strictly prohibited under applicable copyright laws and B2B EULA.
+# ============================================================================
+
 """
 Base-60 aritmetika - pracuje so znakmi ako s ciframi v báze 60.
 
 base60_add / base60_multiply sú overené proti int() (3000 sčítaní,
 500 násobení na 80-120 bitových hodnotách, nula chýb).
+
+Phase 1: add/multiply používajú int-native hot path (C-speed bignum)
+s kanonickým výstupom; pôvodná digit-loop logika je zdokumentovaná
+v base60_int._add_digits/_mul_digits ako referencia.
 
 base60_fraction používa long division priamo v Base60.
 
@@ -39,70 +52,61 @@ from hexa60 import ALPHABET, LOOKUP
 BASE60_ALPHABET = ALPHABET
 BASE60_REVERSE = LOOKUP
 
+# _ENC/_DEC mirror hexa60's hot-path tables so the functional API parses
+# without a dict probe; BASE60_ALPHABET/BASE60_REVERSE stay canonical.
+_ENC = ALPHABET.encode("ascii")
+_DEC = [-1] * 256
+for _i, _c in enumerate(_ENC):
+    _DEC[_c] = _i
+
+
+def _to_int(s: str) -> int:
+    """Base60 string -> int via the _DEC table.
+
+    Empty or invalid input raises ValueError (same contract as decode).
+    """
+    if not s:
+        raise ValueError("Base-60 decode: prázdny reťazec")
+    acc = 0
+    dec = _DEC
+    for ch in s:
+        o = ord(ch)
+        d = dec[o] if o < 256 else -1
+        if d < 0:
+            raise ValueError(f"Base-60 decode: neplatný znak '{ch}'")
+        acc = acc * 60 + d
+    return acc
+
+
+def _from_int(value: int) -> str:
+    """int -> canonical Base60 string via the _ENC table."""
+    if value == 0:
+        return ALPHABET[0]
+    enc = _ENC
+    out = bytearray()
+    while value > 0:
+        value, r = divmod(value, 60)
+        out.append(enc[r])
+    out.reverse()
+    return bytes(out).decode("ascii")
+
 
 def base60_add(a: str, b: str) -> str:
-    """Sčíta dve Base60 čísla priamo v Base60, bez int() konverzie."""
-    a_rev = a[::-1]
-    b_rev = b[::-1]
+    """Sčíta dve Base60 čísla.
 
-    result = []
-    carry = 0
-    max_len = max(len(a_rev), len(b_rev))
-
-    for i in range(max_len):
-        digit_a = BASE60_REVERSE[a_rev[i]] if i < len(a_rev) else 0
-        digit_b = BASE60_REVERSE[b_rev[i]] if i < len(b_rev) else 0
-
-        total = digit_a + digit_b + carry
-        result.append(BASE60_ALPHABET[total % 60])
-        carry = total // 60
-
-    if carry > 0:
-        result.append(BASE60_ALPHABET[carry])
-
-    return "".join(reversed(result))
+    Phase 1: int-native hot path. Výstup je kanonický (bez high-order
+    nul); hodnoty overené proti digit implementácii v testoch.
+    """
+    return _from_int(_to_int(a) + _to_int(b))
 
 
 def base60_multiply(a: str, b: str) -> str:
-    """Násobí dve Base60 čísla priamo v Base60, bez int() konverzie.
+    """Násobí dve Base60 čísla.
 
-    Schoolbook metóda. `partial.insert(0, ...)` je O(n), takže celkovo O(n^2).
+    Phase 1: int-native hot path (C-speed bignum) namiesto schoolbook
+    slučiek s O(n) insert(0, ...). Vstupy validuje _to_int.
     """
-    a_rev = a[::-1]
-    b_rev = b[::-1]
-
-    partials = []
-
-    for i, digit_b in enumerate(b_rev):
-        if digit_b not in BASE60_REVERSE:
-            raise ValueError(f"Neplatný Base60 znak: '{digit_b}'")
-        val_b = BASE60_REVERSE[digit_b]
-
-        carry = 0
-        partial = []
-
-        for digit_a in a_rev:
-            if digit_a not in BASE60_REVERSE:
-                raise ValueError(f"Neplatný Base60 znak: '{digit_a}'")
-            val_a = BASE60_REVERSE[digit_a]
-
-            product = val_a * val_b + carry
-            partial.append(BASE60_ALPHABET[product % 60])
-            carry = product // 60
-
-        if carry > 0:
-            partial.append(BASE60_ALPHABET[carry])
-
-        for _ in range(i):
-            partial.insert(0, BASE60_ALPHABET[0])
-
-        partials.append("".join(reversed(partial)))
-
-    result = BASE60_ALPHABET[0]
-    for partial in partials:
-        result = base60_add(result, partial)
-
-    return result
+    return _from_int(_to_int(a) * _to_int(b))
 
 
 def base60_to_digits(s: str) -> list:

@@ -1,3 +1,12 @@
+# ============================================================================
+# HEXA-60 CORE™ — High-Throughput Base60 Encoding Engine
+# Copyright (c) 2026 Ladislav Müller (IČO: 40189589). All rights reserved.
+#
+# PROPRIETARY AND CONFIDENTIAL SOFTWARE.
+# Unauthorized copying, distribution, or modification of this file, via any
+# medium, is strictly prohibited under applicable copyright laws and B2B EULA.
+# ============================================================================
+
 # ============================================
 # hexa60.py – HEXA60 reference implementation
 # ============================================
@@ -10,7 +19,9 @@
 # NOTE: encode_chunked output is a dedicated wire format and is NOT
 #       compatible with the bulk decode().
 
+import importlib
 import math
+import os
 
 __all__ = [
     "ALPHABET",
@@ -31,12 +42,23 @@ __all__ = [
     "bytes_to_base60",
     "base60_to_bytes",
     "base60_to_bytes_lenient",
+    "HAS_NATIVE",
 ]
 
 # 60 unique characters. Excluded for visual ambiguity: I, O (upper), l, o (lower).
 ALPHABET = "0123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz_-"
 BASE = 60
 LOOKUP = {ch: i for i, ch in enumerate(ALPHABET)}
+
+# --- hot-path lookup tables (Phase 1 optimisation) ---------------------------
+# _ENC/_DEC are the SAME alphabet as LOOKUP, only in a branch-light form:
+# _DEC[ord(c)] is an int list lookup instead of a dict probe. LOOKUP stays
+# the canonical public mapping; keep both in sync (asserted in tests).
+_ENC = ALPHABET.encode("ascii")
+_DEC = [-1] * 256
+for _i, _c in enumerate(_ENC):
+    _DEC[_c] = _i
+assert len(_ENC) == BASE and all(_DEC[c] == i for i, c in enumerate(_ENC))
 
 CHUNK_BYTES = 8
 CHUNK_CHARS = 11
@@ -55,6 +77,38 @@ TAIL_CHARS = {
     r: math.ceil(CHUNK_BYTES * r / math.log2(BASE)) for r in range(CHUNK_BYTES)
 }
 _REM_FROM_TAIL_CHARS = {c: r for r, c in TAIL_CHARS.items()}
+
+
+# --- optional native accelerator (Phase 3) -----------------------------------
+# _hexa60c is a nanobind extension wrapping the L1-pair-LUT C++ core. Loading
+# it is OPTIONAL and never breaks the pure-Python import:
+#   * HEXA60_PURE=1 (or any value other than "", "0", "false") forces pure,
+#   * ImportError (not built) or any load failure -> pure fallback,
+#   * ABI mismatch -> pure fallback (the wrapper changes with the header).
+_NATIVE_ABI = 1
+_NATIVE_CANDIDATES = ("_hexa60c", "_hexa60_native")
+
+
+def _load_native():
+    """Return the compiled codec module, or None for pure-Python mode."""
+    if os.environ.get("HEXA60_PURE", "") not in ("", "0", "false", "False"):
+        return None
+    for name in _NATIVE_CANDIDATES:
+        try:
+            mod = importlib.import_module(name)
+        except ImportError:
+            continue
+        except Exception:
+            # Corrupt / ABI-mismatched binary: never break the pure import.
+            continue
+        if getattr(mod, "ABI_VERSION", None) == _NATIVE_ABI:
+            return mod
+    return None
+
+
+_NATIVE = _load_native()
+HAS_NATIVE = _NATIVE is not None
+
 
 
 class Base60Error(Exception):
@@ -97,7 +151,12 @@ def is_valid(text) -> bool:
     """
     if not isinstance(text, str):
         raise TypeError(f"is_valid() expects str, got {type(text).__name__}")
-    return all(ch in LOOKUP for ch in text)
+    dec = _DEC
+    for ch in text:
+        o = ord(ch)
+        if o > 255 or dec[o] < 0:
+            return False
+    return True
 
 
 def _prepare(text, strict):
@@ -105,43 +164,86 @@ def _prepare(text, strict):
     if not isinstance(text, str):
         raise TypeError(f"Expected str, got {type(text).__name__}")
     if strict:
+        dec = _DEC
         for i, ch in enumerate(text):
-            if ch not in LOOKUP:
+            o = ord(ch)
+            if o > 255 or dec[o] < 0:
                 raise InvalidCharacterError(ch, i)
         return text
     return "".join(ch for ch in text if ch in LOOKUP)
 
 
 def _encode_fixed(num, width):
-    chars = []
-    for _ in range(width):
-        num, idx = divmod(num, BASE)
-        chars.append(ALPHABET[idx])
-    return "".join(reversed(chars))
+    """Encode `num` as exactly `width` Base-60 digits (big-endian).
+
+    Hot path: writes into a preallocated bytearray at the caller's offset
+    instead of building and joining small strings.
+    """
+    enc = _ENC
+    buf = bytearray(width)
+    for i in range(width - 1, -1, -1):
+        num, r = divmod(num, BASE)
+        buf[i] = enc[r]
+    return bytes(buf).decode("ascii")
+
+
+def _write_fixed(buf: bytearray, off: int, num: int, width: int) -> None:
+    """Encode `num` as `width` digits directly into `buf` at `off`."""
+    enc = _ENC
+    for i in range(width - 1, -1, -1):
+        num, r = divmod(num, BASE)
+        buf[off + i] = enc[r]
+
+
+def _encode_chunked_pure(raw: bytes) -> str:
+    """Pure-Python chunked encoder (Phase 1 bytearray hot path).
+
+    Single preallocated bytearray: each chunk is written at its own offset,
+    so no per-chunk strings are built or joined. `raw` must be bytes-like
+    (type validation happens in encode_chunked).
+    """
+    if not raw:
+        return ""
+    full, rem = divmod(len(raw), CHUNK_BYTES)
+    buf = bytearray(full * CHUNK_CHARS + (TAIL_CHARS[rem] if rem else 0))
+    off_b = 0
+    off_c = 0
+    m = memoryview(raw)
+    for _ in range(full):
+        _write_fixed(buf, off_c, int.from_bytes(m[off_b:off_b + CHUNK_BYTES], "big"),
+                     CHUNK_CHARS)
+        off_b += CHUNK_BYTES
+        off_c += CHUNK_CHARS
+    if rem:
+        _write_fixed(buf, off_c, int.from_bytes(m[off_b:], "big"), TAIL_CHARS[rem])
+    return buf.decode("ascii")
 
 
 def encode_chunked(data: bytes) -> str:
-    """bytes -> HEXA60 text, 8 bytes -> 11 chars, O(N). Wire format."""
+    """bytes -> HEXA60 text, 8 bytes -> 11 chars, O(N). Wire format.
+
+    Dispatches to the compiled _hexa60c module when available (see
+    HAS_NATIVE), otherwise uses the pure-Python bytearray path. Both paths
+    produce byte-identical output.
+    """
     if not isinstance(data, (bytes, bytearray, memoryview)):
         raise TypeError(
             f"encode_chunked() expects a bytes-like object, got "
             f"{type(data).__name__}"
         )
-    if not isinstance(data, bytes):
-        # int.from_bytes accepts bytearray but not reliably memoryview across
-        # versions, and the slicing below assumes a bytes-like result.
-        data = bytes(data)
-    if not data:
+    if isinstance(data, memoryview):
+        # memoryview has no lstrip-free slicing guarantees across versions,
+        # so normalise to bytes once; bytes/bytearray are used without copying.
+        raw = data.tobytes()
+    elif isinstance(data, bytes):
+        raw = data
+    else:
+        raw = bytes(data)
+    if not raw:
         return ""
-    end = len(data) - len(data) % CHUNK_BYTES
-    out = [
-        _encode_fixed(int.from_bytes(data[i:i + CHUNK_BYTES], "big"), CHUNK_CHARS)
-        for i in range(0, end, CHUNK_BYTES)
-    ]
-    tail = data[end:]
-    if tail:
-        out.append(_encode_fixed(int.from_bytes(tail, "big"), TAIL_CHARS[len(tail)]))
-    return "".join(out)
+    if _NATIVE is not None:
+        return _NATIVE.encode_chunked(raw)
+    return _encode_chunked_pure(raw)
 
 
 def _unpack(num, n_bytes, n_chars):
@@ -160,12 +262,18 @@ def _unpack(num, n_bytes, n_chars):
         ) from None
 
 
-def decode_chunked(text: str, length=None, strict: bool = False) -> bytes:
-    """HEXA60 chunked text -> bytes. Pass `length` to enforce an exact size.
+def _block_value(text: str, start: int, n: int) -> int:
+    """Value of an n-digit block via the _DEC table (hot path)."""
+    dec = _DEC
+    acc = 0
+    for i in range(start, start + n):
+        o = ord(text[i])
+        acc = acc * BASE + dec[o]  # caller guarantees validity via _prepare
+    return acc
 
-    Chunks whose value exceeds the capacity of their byte width, as well as
-    lengths that do not match a valid chunk layout, raise LengthError.
-    """
+
+def _decode_chunked_pure(text: str, length=None, strict: bool = False) -> bytes:
+    """Pure-Python chunked decoder (the reference implementation)."""
     clean = _prepare(text, strict)
     if not clean:
         return b""
@@ -174,23 +282,88 @@ def decode_chunked(text: str, length=None, strict: bool = False) -> bytes:
     if rem not in _REM_FROM_TAIL_CHARS:
         raise LengthError(rem, set(_REM_FROM_TAIL_CHARS))
 
-    out = bytearray()
-    for i in range(n_full):
-        block = clean[i * CHUNK_CHARS:(i + 1) * CHUNK_CHARS]
-        num = 0
-        for ch in block:
-            num = num * BASE + LOOKUP[ch]
-        out.extend(_unpack(num, CHUNK_BYTES, CHUNK_CHARS))
+    if strict:
+        # Validated already by _prepare; decode via the fast table path.
+        dec = _DEC
+        out = bytearray(n_full * CHUNK_BYTES + (_REM_FROM_TAIL_CHARS[rem] if rem else 0))
+        pos = 0
+        o = 0
+        for _ in range(n_full):
+            num = 0
+            for i in range(pos, pos + CHUNK_CHARS):
+                num = num * BASE + dec[ord(clean[i])]
+            out[o:o + CHUNK_BYTES] = num.to_bytes(CHUNK_BYTES, "big")
+            pos += CHUNK_CHARS
+            o += CHUNK_BYTES
+        if rem:
+            r = _REM_FROM_TAIL_CHARS[rem]
+            num = 0
+            for i in range(pos, pos + rem):
+                num = num * BASE + dec[ord(clean[i])]
+            out[o:o + r] = _unpack(num, r, rem)
+    else:
+        out = bytearray()
+        for i in range(n_full):
+            block = clean[i * CHUNK_CHARS:(i + 1) * CHUNK_CHARS]
+            num = 0
+            for ch in block:
+                num = num * BASE + LOOKUP[ch]
+            out.extend(_unpack(num, CHUNK_BYTES, CHUNK_CHARS))
 
-    if rem:
-        num = 0
-        for ch in clean[n_full * CHUNK_CHARS:]:
-            num = num * BASE + LOOKUP[ch]
-        out.extend(_unpack(num, _REM_FROM_TAIL_CHARS[rem], rem))
+        if rem:
+            num = 0
+            for ch in clean[n_full * CHUNK_CHARS:]:
+                num = num * BASE + LOOKUP[ch]
+            out.extend(_unpack(num, _REM_FROM_TAIL_CHARS[rem], rem))
 
     if length is not None and len(out) != length:
         raise LengthError(len(out), {length})
     return bytes(out)
+
+
+def _raise_native_decode_error(exc: ValueError) -> None:
+    """Translate a structured native ValueError into the real Python error.
+
+    The codes mirror cpp/nanobind/bindings.cpp exactly; the arguments are
+    rebuilt so the raised exception is indistinguishable from the pure path.
+    """
+    parts = str(exc).split("|")
+    kind = parts[0]
+    if kind == "invalid_char" and len(parts) == 3:
+        raise InvalidCharacterError(chr(int(parts[2])), int(parts[1])) from None
+    if kind == "invalid_layout" and len(parts) == 2:
+        raise LengthError(int(parts[1]), set(_REM_FROM_TAIL_CHARS)) from None
+    if kind == "overflow" and len(parts) == 3:
+        n_chars, n_bytes = int(parts[1]), int(parts[2])
+        raise LengthError(
+            n_chars, {f"<= {BASE ** n_chars} for {n_bytes} bytes"}
+        ) from None
+    raise Base60Error(f"native decode_chunked failed: {exc}") from None
+
+
+def decode_chunked(text: str, length=None, strict: bool = False) -> bytes:
+    """HEXA60 chunked text -> bytes. Pass `length` to enforce an exact size.
+
+    Chunks whose value exceeds the capacity of their byte width, as well as
+    lengths that do not match a valid chunk layout, raise LengthError.
+
+    Dispatches to the compiled _hexa60c module when available (see
+    HAS_NATIVE), otherwise uses the pure-Python reference decoder. Both
+    paths raise identical exception classes with identical arguments.
+    """
+    if not isinstance(text, str):
+        raise TypeError(f"Expected str, got {type(text).__name__}")
+    if _NATIVE is None:
+        return _decode_chunked_pure(text, length, strict)
+    try:
+        out = _NATIVE.decode_chunked(text, strict)
+    except ValueError as exc:
+        _raise_native_decode_error(exc)
+    # Empty result: same as the pure path, which returns b"" before the
+    # length check when the cleaned input is empty.
+    if out and length is not None and len(out) != length:
+        raise LengthError(len(out), {length})
+    return out
 
 
 def decode_chunked_auto(text: str, strict: bool = False) -> bytes:
@@ -250,9 +423,13 @@ def decode(text: str, *, length=None, strict: bool = True) -> bytes:
     if not clean:
         result = b""
     else:
+        dec = _DEC
         num = 0
-        for ch in clean:
-            num = num * BASE + LOOKUP[ch]
+        for i, ch in enumerate(clean):
+            d = dec[ord(ch)] if ord(ch) < 256 else -1
+            if d < 0:  # only reachable in non-strict mode; _prepare strips there
+                continue
+            num = num * BASE + d
         leading = len(clean) - len(clean.lstrip(ALPHABET[0]))
         result = b"\x00" * leading + num.to_bytes((num.bit_length() + 7) // 8, "big")
     return result if length is None else _fit(result, length)
@@ -277,9 +454,10 @@ def base60_to_bytes_lenient(s, length=None):
     clean = "".join(c for c in s if c in LOOKUP) if isinstance(s, str) else ""
     if not clean:
         return b"" if length is None else b"\x00" * max(length, 0)
+    dec = _DEC
     num = 0
     for ch in clean:
-        num = num * BASE + LOOKUP[ch]
+        num = num * BASE + dec[ord(ch)]
     leading = len(clean) - len(clean.lstrip(ALPHABET[0]))
     raw = b"\x00" * leading + num.to_bytes((num.bit_length() + 7) // 8, "big")
     if length is None:

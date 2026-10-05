@@ -1,3 +1,12 @@
+# ============================================================================
+# HEXA-60 CORE™ — High-Throughput Base60 Encoding Engine
+# Copyright (c) 2026 Ladislav Müller (IČO: 40189589). All rights reserved.
+#
+# PROPRIETARY AND CONFIDENTIAL SOFTWARE.
+# Unauthorized copying, distribution, or modification of this file, via any
+# medium, is strictly prohibited under applicable copyright laws and B2B EULA.
+# ============================================================================
+
 """
 base60_int.py -- Base60Int, nepremenlivy typ cisla v sústave 60.
 
@@ -6,12 +15,12 @@ v hexa60.py. Rovnaku abecedu pouziva aj base60_arithmetic.py, takze vsetky
 tri moduly hovoria o TIEZ CISLACH a su navzajom zamenitelne.
 
 Dve vrstvy:
-  1. Low-level funkcie na retazcoch (add_b60, mul_b60, ...) -- rucne
-     implementovana aritmetika na cislach, bez int() medzikroku.
+  1. Low-level funkcie na retazcoch (add_b60, mul_b60, ...) -- int-native
+     hot path (faza 1), vystupy kanonizovane ako predtym.
   2. Base60Int -- nepremenlive ohnisko, interne drzi python int.
 
-Low-level funkcie su referenciou pre spravnost; testy to overuju na
-desiatkach tisicok nahodnych vstupov proti python int.
+Digit-list helpery (_add_digits, _mul_digits, ...) zostavaju ako referencna
+implementacia pre spravnost.
 
 Ziadny z tychto typov nema znamienko. Zaporne hodnoty nie su
 representovatelne v 60-symbolickej sustave bez znamienkovej pozicie, takze
@@ -25,6 +34,36 @@ import math
 from typing import List, Optional, Tuple, Union
 
 from hexa60 import ALPHABET, BASE, LOOKUP, InvalidCharacterError, LengthError
+
+# _ENC/_DEC mirror hexa60's hot-path tables: int-native parsing without a
+# dict probe, while LOOKUP stays the canonical public mapping.
+_ENC = ALPHABET.encode("ascii")
+_DEC = [-1] * 256
+for _i, _c in enumerate(_ENC):
+    _DEC[_c] = _i
+
+
+def _parse(s: str) -> int:
+    """Base60 string -> int via the _DEC table. Same errors as _check path."""
+    _check_str(s, "parse")
+    acc = 0
+    dec = _DEC
+    for ch in s:
+        acc = acc * BASE + dec[ord(ch)]
+    return acc
+
+
+def _format(n: int) -> str:
+    """int -> canonical Base60 string via the _ENC table."""
+    if n == 0:
+        return ALPHABET[0]
+    enc = _ENC
+    out = bytearray()
+    while n:
+        n, r = divmod(n, BASE)
+        out.append(enc[r])
+    out.reverse()
+    return bytes(out).decode("ascii")
 
 __all__ = [
     "BASE",
@@ -185,25 +224,35 @@ def _divmod_digits(a: List[int], b: List[int]) -> Tuple[List[int], List[int]]:
 # --------------------------------------------------------------------------
 # Low-level API na retazcoch
 # --------------------------------------------------------------------------
+# Phase 1: int-native hot path. The digit-list helpers above stay as the
+# documented reference implementation; these four functions delegate to
+# Python ints (C-speed bignum) and canonicalise via from_digits, so outputs
+# are bit-identical to the digit implementation.
 def add_b60(a: str, b: str) -> str:
     """Scita dva Base60 retazce, s prenosom."""
-    return from_digits(_add_digits(to_digits(a), to_digits(b)))
+    return _format(_parse(a) + _parse(b))
 
 
 def sub_b60(a: str, b: str) -> str:
     """Odcita b od a. ValueError, ak a < b (Base-60 nema znamienko)."""
-    return from_digits(_sub_digits(to_digits(a), to_digits(b)))
+    x, y = _parse(a), _parse(b)
+    if x < y:
+        raise ValueError("base60 subtract: a < b")
+    return _format(x - y)
 
 
 def mul_b60(a: str, b: str) -> str:
     """Nasobi dva Base60 retazce."""
-    return from_digits(_mul_digits(to_digits(a), to_digits(b)))
+    return _format(_parse(a) * _parse(b))
 
 
 def divmod_b60(a: str, b: str) -> Tuple[str, str]:
     """Podiel a zvysok dvoch Base60 retazcov."""
-    q, r = _divmod_digits(to_digits(a), to_digits(b))
-    return from_digits(q), from_digits(r)
+    x, y = _parse(a), _parse(b)
+    if y == 0:
+        raise ZeroDivisionError("division by zero in base-60")
+    q, r = divmod(x, y)
+    return _format(q), _format(r)
 
 
 # --------------------------------------------------------------------------
@@ -266,12 +315,14 @@ class Base60Int:
     def _str_to_int(text: str) -> int:
         if not text:
             raise ValueError("Base60Int: empty string is not a number")
+        dec = _DEC
         for i, ch in enumerate(text):
-            if ch not in LOOKUP:
+            o = ord(ch)
+            if o > 255 or dec[o] < 0:
                 raise InvalidCharacterError(ch, i)
         value = 0
         for ch in text:
-            value = value * BASE + LOOKUP[ch]
+            value = value * BASE + dec[ord(ch)]
         return value
 
     @staticmethod
@@ -310,11 +361,13 @@ class Base60Int:
     def _encode(value: int) -> str:
         if value == 0:
             return ALPHABET[0]
-        chars = []
+        enc = _ENC
+        out = bytearray()
         while value:
             value, idx = divmod(value, BASE)
-            chars.append(ALPHABET[idx])
-        return "".join(reversed(chars))
+            out.append(enc[idx])
+        out.reverse()
+        return bytes(out).decode("ascii")
 
     def to_int(self) -> int:
         return self._value

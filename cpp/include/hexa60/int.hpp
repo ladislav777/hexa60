@@ -1,3 +1,12 @@
+// ============================================================================
+// HEXA-60 CORE™ — High-Throughput Base60 Encoding Engine
+// Copyright (c) 2026 Ladislav Müller (IČO: 40189589). All rights reserved.
+//
+// PROPRIETARY AND CONFIDENTIAL SOFTWARE.
+// Unauthorized copying, distribution, or modification of this file, via any
+// medium, is strictly prohibited under applicable copyright laws and B2B EULA.
+// ============================================================================
+
 // hexa60/int.hpp -- immutable Base-60 integer with full arithmetic.
 //
 // C++20 port of base60_int.py / base60_arithmetic.py.
