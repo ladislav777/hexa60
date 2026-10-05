@@ -13,7 +13,7 @@
 // Zero dependencies beyond the STL.
 //
 // WIRE FORMAT (must stay bit-identical to the Python reference):
-//   ALPHABET = "0123456789ABCDEFGHIJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz_-"
+//   ALPHABET = "0123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz_-"
 //   8 bytes -> 11 chars, tail r in 1..7 -> TAIL_CHARS[r] chars
 //
 // THREE FACTS THAT ARE EASY TO GET WRONG -- read before modifying:
