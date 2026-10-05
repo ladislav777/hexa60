@@ -7,13 +7,24 @@
 
 **HEXA60** is a deterministic, high-performance binary-to-text encoding scheme engineered specifically for transport safety across modern network protocols, web APIs, biometrics, and database storage.
 
-Unlike traditional Base64 (which requires characters like `+`, `/`, and `=`) or Base58, HEXA60 uses an **identifier-safe 60-character alphabet**. It eliminates all characters requiring URL percent-encoding, regex escaping, or special handling in HTTP headers, QR codes, and SQL queries.
+Unlike traditional Base64 (which requires characters like `+`, `/`, and `=`) or
+Base58, HEXA60 uses an **identifier-safe 60-character alphabet**. It contains no
+quotes, slashes, plus signs, padding characters, or other frequently
+problematic delimiters, so encoded values survive URL-unreserved contexts and
+HTTP header token rules without percent-encoding or escaping.
+
+This is a property of the character set, not a guarantee about every context.
+It does not replace SQL parameterisation, does not make values safe to
+concatenate into a query, and does not remove context-specific escaping rules —
+for example `-` still needs care inside a regex character class. Lowercase
+letters are also not part of the QR alphanumeric mode, so QR codes fall back to
+byte mode.
 
 ---
 
 ## Key Features
 
-- 🛡️ **Identifier-Safe Alphabet:** Devoid of `+`, `/`, `=`, and punctuation that triggers URL encoding or header parsing errors.
+- 🛡️ **Identifier-Safe Alphabet:** Contains no quotes, slashes, `+`, `=` or other frequently problematic delimiters, so values pass through URL-unreserved contexts and HTTP headers without escaping. It does not replace SQL parameterisation or all context-specific escaping.
 - ⚡ **$\mathcal{O}(N)$ Chunked Encoding:** High-throughput `encode_chunked()` processes 8-byte blocks into 11-character chunks in linear time ($\mathcal{O}(N)$), making it ideal for large payloads and biometrics.
 - 0️⃣ **Deterministic Zero-Byte Preservation:** Preserves leading zero bytes (`b'\x00'`) by mapping them directly to `'0'` characters (the first character of `ALPHABET`).
 - 🔍 **Strict Error Handling:** Immediate detection of corrupted input via `InvalidCharacterError` (with exact character and index position) and `LengthError`.
@@ -261,17 +272,30 @@ base60_fraction("1", "2")     # '0.W'      -- 30/60
 base60_fraction("1", "4")     # '0.F'      -- 15/60
 base60_fraction("1", "5")     # '0.C'      -- 12/60
 base60_fraction("1", "6")     # '0.A'      -- 10/60
-base60_fraction("1", "60")    # '0.0A'     -- 10/60^2, "60" == 60
+base60_fraction("1", "60")    # '0.0A'     -- "60"₆₀ = 360₁₀, so 1/360 = 10/60²
+base60_fraction("1", "10")    # '0.1'      -- "10"₆₀ = 60₁₀, so 1/60 = 1/60
 base60_fraction("2", "3")     # '0.g'      -- 40 + 20 + 20 ... = 0.666...
 base60_fraction("1", "7")     # '0.8aH'    -- cycle 8,a,H (60 == 4 mod 7)
 ```
 
-Note the denominator is itself Base-60: `base60_fraction("1", "10")` divides 1
-by **60** (since `"10"` is `1*60 + 0`), not by decimal 10.
+Note the **denominator is itself Base-60**: `base60_fraction("1", "10")` divides 1
+by **60**, since `"10"` is `1*60 + 0`, not by decimal 10. Likewise `"60"` is the
+Base-60 numeral sixty = 360 decimal, which is why `1/360` renders as `0.0A`:
+one digit at position 2, value 10 over `60²`.
 
 ### Tail handling
 
-Leftover bytes use `TAIL_CHARS`, derived as `C = ceil(CHUNK_BYTES * r / log2(60))`:
+Leftover bytes use `TAIL_CHARS`, derived so that a tail of `R` bytes has enough
+digits to hold any value in `0 .. 2**(8R)`:
+
+```text
+C(R) = ceil(8R / log2(60)),   1 <= R <= 7
+```
+
+`8R` is the tail width in bits, and `log2(60)` is the number of bits one Base-60
+digit carries, so their ratio is the minimum digit count. `C(0) = 0`. In code
+this is `math.ceil(CHUNK_BYTES * R / math.log2(BASE))` — `CHUNK_BYTES * R` is
+the same `8R`, not a bit count to be multiplied by `CHUNK_BYTES` again.
 
 | Remaining bytes (R) | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -310,11 +334,24 @@ input encodes to `""`, which is the encoding of `b""`.
 
 `decode()` is strict by default and raises `InvalidCharacterError`.
 
-`decode_chunked()` is **lenient** by default: with `strict=False` it silently
-strips characters outside the alphabet. In a chunked payload this shifts every
-subsequent block boundary, so corrupted input can decode to entirely different
-bytes without any error. Pass `strict=True` when the input is not already
-trusted, and see the 1.0.1 entry in `CHANGELOG.md`.
+`decode_chunked()` is **lenient by default** (`strict=False`): characters outside
+the alphabet are silently dropped rather than reported.
+
+> **Warning — `strict=False` is lossy.** In a chunked payload, dropping one
+> character shifts every subsequent 11-character block boundary, so corrupted
+> input can decode to entirely different bytes with no error raised. There is no
+> checksum and no length header to detect this. Use `strict=False` only for input
+> that is known to be clean — e.g. re-reading your own output after whitespace
+> normalisation. For anything crossing a trust boundary, pass `strict=True`:
+>
+> ```python
+> decode_chunked(text, strict=True)      # raise InvalidCharacterError
+> decode_chunked_auto(text, strict=True)
+> ```
+>
+> The default is kept for backwards compatibility in 1.0.1; changing it to
+> `strict=True` is planned for a future minor release. See the 1.0.1 entry in
+> `CHANGELOG.md`.
 
 ---
 

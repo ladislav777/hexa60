@@ -41,8 +41,16 @@ LOOKUP = {ch: i for i, ch in enumerate(ALPHABET)}
 CHUNK_BYTES = 8
 CHUNK_CHARS = 11
 
-# TAIL_CHARS[r] = chars needed to encode r trailing bytes.
-# Derived formula: C = ceil(CHUNK_BYTES * r / log2(BASE))
+# TAIL_CHARS[r] = digits needed to encode a tail of r trailing bytes.
+#
+# A tail of R bytes holds any value in 0 .. 2**(8R), and one Base-60 digit
+# carries log2(60) bits, so the minimum width is:
+#
+#     C(R) = ceil(8R / log2(60)),   1 <= R <= 7   (and C(0) = 0)
+#
+# CHUNK_BYTES * r below is exactly 8R; it is a byte count, not a bit count.
+# Do not multiply by CHUNK_BYTES a second time -- that gives the bit width
+# of a whole chunk and produces far too many digits.
 TAIL_CHARS = {
     r: math.ceil(CHUNK_BYTES * r / math.log2(BASE)) for r in range(CHUNK_BYTES)
 }

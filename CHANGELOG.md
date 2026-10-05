@@ -39,6 +39,25 @@ The suite now derives its expectations from the README rather than trusting it:
 recomputes it, and `test_readme_alphabet_matches_implementation` asserts the
 printed alphabet is the real one. Both were confirmed to fail on a deliberately
 reintroduced error before being left in place.
+- Documentation claims about context safety were broadened beyond what the
+  alphabet can guarantee. The README said HEXA60 "eliminates all characters
+  requiring URL percent-encoding, regex escaping, or special handling in HTTP
+  headers, QR codes, and SQL queries". It contains no quotes, slashes, `+` or
+  `=`, which does make it safe in URL-unreserved contexts and HTTP header
+  tokens, but it does not replace SQL parameterisation, `-` still needs care
+  inside a regex character class, and lowercase letters are not part of the QR
+  alphanumeric mode. The text now says that plainly rather than implying
+  general safety.
+- The `decode_chunked` note now leads with the fact that `strict=False` is
+  lossy, shows the `strict=True` call for input crossing a trust boundary, and
+  states that the default is retained for backwards compatibility rather than
+  being presented as the recommended mode.
+- `TAIL_CHARS` documentation in both the README and `hexa60.py` now writes the
+  formula as `C(R) = ceil(8R / log2(60))` with the derivation, and warns
+  explicitly that `CHUNK_BYTES * R` is already `8R` and must not be multiplied
+  by `CHUNK_BYTES` again. Two tests cover it: one asserts the table matches the
+  formula, the other asserts the misreading would produce widths of 11, 22,
+  33 and fail.
 
 ### Fixed
 

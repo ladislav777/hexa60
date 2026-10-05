@@ -28,6 +28,7 @@ using a literal copy of the alphabet, so that a change to hexa60.ALPHABET is
 caught here instead of being silently mirrored.
 """
 
+import math
 import re
 from pathlib import Path
 
@@ -94,6 +95,37 @@ def test_tail_chars_match_the_capacity_formula():
         assert capacity >= 2 ** (8 * r)
         if r:
             assert BASE ** (chars - 1) < 2 ** (8 * r)
+
+
+def test_tail_chars_equal_the_documented_formula():
+    """C(R) = ceil(8R / log2(60)), with 8R written as CHUNK_BYTES * R.
+
+    The distinction matters because CHUNK_BYTES is 8: multiplying by it twice
+    yields the bit width of a whole chunk and digits far wider than any tail.
+    """
+    for r in range(CHUNK_BYTES):
+        assert TAIL_CHARS[r] == math.ceil(CHUNK_BYTES * r / math.log2(BASE))
+
+
+def test_wrong_tail_formula_would_be_detectable():
+    """Guards the trap the formula invites: (CHUNK_BITS * R) is not the same.
+
+    If someone 'fixes' the formula to multiply by the bit count again, the tail
+    widths become 11, 22, 33, ... -- which cannot round-trip and is caught here
+    rather than silently shipping.
+    """
+    wrong = {
+        r: math.ceil((8 * CHUNK_BYTES) * r / math.log2(BASE))
+        for r in range(CHUNK_BYTES)
+    }
+    assert wrong != TAIL_CHARS
+    for r in range(1, CHUNK_BYTES):
+        # A tail never needs more digits than a whole chunk. The wrong formula
+        # already exceeds that at r = 1 and grows from there.
+        assert TAIL_CHARS[r] <= CHUNK_CHARS
+        assert wrong[r] >= CHUNK_CHARS
+    assert wrong[1] > TAIL_CHARS[1]
+    assert wrong[CHUNK_BYTES - 1] > TAIL_CHARS[CHUNK_BYTES - 1]
 
 
 def test_chunk_layout_is_eight_bytes_to_eleven_chars():
