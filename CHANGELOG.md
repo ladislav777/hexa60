@@ -22,6 +22,13 @@ identically here, and the alphabet, chunking and tail tables are untouched.
 - A C++20 badge in the README, and corrected badge targets: the licence badge
   pointed at a `LICENSE.md` that does not exist, and the Python badge claimed
   3.8+ while the package requires 3.9.
+- The README alphabet specification showed a 64-character string containing
+  `I`, `O`, `l` and `o`. The implementation has always used the correct
+  60-character alphabet without those four; only the documentation was wrong.
+  Since the same wrong string is what the published 1.0.0 description renders,
+  this corrects it for 1.0.1. The section now also states which characters are
+  excluded and why, that `-` is the digit 59 rather than a sign, and that the
+  Python, C++ and test copies must stay bit-identical.
 
 ### Fixed
 

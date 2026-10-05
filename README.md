@@ -47,11 +47,16 @@ Unlike traditional Base64 (which requires characters like `+`, `/`, and `=`) or 
 HEXA60 uses a fixed 60-character alphabet (`ALPHABET`):
 
 ```text
-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_-
+0123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz_-
 ```
 
 - **Index 0:** `'0'` (used for zero-padding and leading zero bytes)
-- **Safe Characters:** Numbers (`0-9`), Uppercase (`A-Z`), Lowercase (`a-z`), Underscore (`_`), Hyphen (`-`).
+- **Safe Characters:** Numbers (`0-9`), Uppercase (`A-Z` except `I` and `O`), Lowercase (`a-z` except `l` and `o`), Underscore (`_`), Hyphen (`-`).
+- **Excluded Ambiguous Characters:** `I`, `O`, `l`, `o` — each collides visually with `1`, `0`, `1` and `0` respectively. They are absent from the alphabet, so `decode(..., strict=True)` rejects them.
+- **Index 59:** `'-'` is the digit 59, **not** a sign. Signed parsing is opt-in via `from_string_signed()` and is explicitly not wire-compatible.
+- **Counts:** 10 digits + 24 uppercase + 24 lowercase + 2 = 60 characters.
+
+The same string is defined once in `hexa60.ALPHABET` and once in `cpp/include/hexa60/codec.hpp`; the two must stay bit-identical. `tests/test_codec_boundaries.py` keeps a third independent copy and asserts all three agree.
 
 ---
 
