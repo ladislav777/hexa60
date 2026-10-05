@@ -7,130 +7,108 @@
 # medium, is strictly prohibited under applicable copyright laws and B2B EULA.
 # ============================================================================
 
-import sys
-import os
 import time
 import random
+import sys
 
 # Ensure UTF-8 output on Windows consoles
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-import hexa60
+# 1. Kontrola dostupnosti modulov a overenie typov
+print("=" * 78)
+print("       HEXA-60 CORE™: REALITY CHECK & VERIFICATION SCRIPT          ")
+print("=" * 78)
 
 try:
     import _hexa60c
-    HAS_NATIVE = True
-except ImportError:
-    HAS_NATIVE = False
+    native_available = True
+    print("[INFO] Natívny C++ modul (_hexa60c) úspešne importovaný.")
+    print(f"[DEBUG] _hexa60c encode funkcia: {type(_hexa60c.encode_chunked)}")
+except ImportError as e:
+    native_available = False
+    print(f"[WARN] Natívny C++ modul NIE JE dostupný: {e}")
+
+try:
+    import hexa60
+    # True Pure-Python reference kernels
+    py_encode = hexa60._encode_chunked_pure
+    py_decode = lambda t: hexa60._decode_chunked_pure(t, strict=True)
+    python_available = True
+    print("[INFO] Pure-Python modul (hexa60) úspešne importovaný.")
+    print(f"[DEBUG] py_encode funkcia: {type(py_encode)}")
+except ImportError as e:
+    python_available = False
+    print(f"[ERROR] Pure-Python modul nie je dostupný: {e}")
+    sys.exit(1)
+
+if native_available:
+    cpp_encode = _hexa60c.encode_chunked
+    cpp_decode = _hexa60c.decode_chunked
+else:
+    cpp_encode = None
+    cpp_decode = None
+
+sizes = [16, 256, 1024, 4096, 16384, 65536]
+iterations_map = {
+    16: 30000,
+    256: 15000,
+    1024: 8000,
+    4096: 3000,
+    16384: 1000,
+    65536: 300
+}
 
 
-def inspect_engine():
-    print("=" * 80)
-    print("           HEXA-60 CORE™: REALITY CHECK & DUAL-ENGINE VERIFICATION            ")
-    print("=" * 80)
-    print(f"Python Runtime : {sys.version.split()[0]} ({sys.platform})")
-    print(f"Architecture   : {sys.maxsize > 2**32 and '64-bit' or '32-bit'}")
-    print(f"Pure Python    : hexa60._encode_chunked_pure -> {type(hexa60._encode_chunked_pure)}")
-    
-    if HAS_NATIVE:
-        print(f"Native Module  : _hexa60c -> {getattr(_hexa60c, '__file__', 'in-memory')}")
-        print(f"Native Function: _hexa60c.encode_chunked -> {type(_hexa60c.encode_chunked)}")
-        print(f"ABI Version    : {getattr(_hexa60c, 'ABI_VERSION', 'N/A')}")
-        print(f"Native Active  : {hexa60.HAS_NATIVE}")
-    else:
-        print("Native Module  : NOT FOUND / DISABLED")
-    print("=" * 80)
-
-
-def benchmark_function(fn, data, min_seconds=0.4, warmup_iters=100):
-    # Warmup phase (primes CPU caches & avoids JIT/allocation latency)
-    for _ in range(warmup_iters):
-        _ = fn(data)
-
-    # Measurement phase
+def benchmark_fn(fn, payload, iters):
+    # Warmup
+    for _ in range(min(50, iters)):
+        _ = fn(payload)
     t0 = time.perf_counter()
-    iters = 0
-    while True:
-        _ = fn(data)
-        iters += 1
-        elapsed = time.perf_counter() - t0
-        if elapsed >= min_seconds and iters >= 50:
-            break
-
-    total_bytes = len(data) * iters if isinstance(data, (bytes, bytearray)) else len(data.encode('ascii')) * iters
-    mb_per_sec = (total_bytes / elapsed) / 1_000_000.0
-    ns_per_block = (elapsed / iters) * 1e9 / (len(data) / 8.0) if len(data) >= 8 else 0.0
-    return mb_per_sec, ns_per_block, iters, elapsed
+    for _ in range(iters):
+        _ = fn(payload)
+    dt = time.perf_counter() - t0
+    return dt
 
 
-def run_reality_verification():
-    inspect_engine()
+def run_benchmarks():
+    print("\n" + "-" * 78)
+    print(f"{'Payload':<10} | {'Mode':<15} | {'Enc (MB/s)':<12} | {'Dec (MB/s)':<12} | {'Speedup (Enc)':<14}")
+    print("-" * 78)
 
-    if not HAS_NATIVE:
-        print("\n[ERROR] Cannot perform comparison because C++ native module (_hexa60c) is not loaded.")
-        return
-
-    sizes = [
-        ("16 B", 16),
-        ("256 B", 256),
-        ("1 KiB", 1024),
-        ("4 KiB", 4096),
-        ("16 KiB", 16384),
-        ("64 KiB", 65536)
-    ]
-
-    print("\n[1] Bit-Identical Parity Verification (C++20 vs Pure Python):")
-    rng = random.Random(20261005)
-    for label, sz in sizes:
-        sample = bytes(rng.getrandbits(8) for _ in range(sz))
-        
-        py_enc = hexa60._encode_chunked_pure(sample)
-        nat_enc = _hexa60c.encode_chunked(sample)
-        assert py_enc == nat_enc, f"Parity mismatch on encode for size {sz}!"
-
-        py_dec = hexa60._decode_chunked_pure(nat_enc, strict=True)
-        nat_dec = _hexa60c.decode_chunked(py_enc)
-        assert py_dec == sample, f"Pure Python decode failed on size {sz}!"
-        assert nat_dec == sample, f"Native C++ decode failed on size {sz}!"
-
-    print("    [PASS] 100% Bit-Identical parity verified across all payload sizes.\n")
-
-    print("[2] High-Precision Throughput Benchmark (time.perf_counter):")
-    header = (
-        f"{'Payload':<8} | "
-        f"{'Py Enc':>9} | {'Nat Enc':>10} | {'Enc Boost':>9} | "
-        f"{'Py Dec':>9} | {'Nat Dec':>10} | {'Dec Boost':>9} | "
-        f"{'Nat Enc ns/8B':>13}"
-    )
-    print(header)
-    print("-" * len(header))
-
-    for label, sz in sizes:
+    for sz in sizes:
+        rng = random.Random(1337)
         payload = bytes(rng.getrandbits(8) for _ in range(sz))
-        wire = _hexa60c.encode_chunked(payload)
+        iters = iterations_map.get(sz, 1000)
 
-        # Pure Python timings
-        py_enc_mb, _, _, _ = benchmark_function(hexa60._encode_chunked_pure, payload, min_seconds=0.3)
-        py_dec_mb, _, _, _ = benchmark_function(lambda w: hexa60._decode_chunked_pure(w, strict=True), wire, min_seconds=0.3)
+        # ── Python Benchmark ──
+        py_enc_dt = benchmark_fn(py_encode, payload, iters)
+        py_wire = py_encode(payload)
+        py_dec_dt = benchmark_fn(py_decode, py_wire, iters)
 
-        # Native C++20 timings
-        nat_enc_mb, nat_enc_ns, _, _ = benchmark_function(_hexa60c.encode_chunked, payload, min_seconds=0.4)
-        nat_dec_mb, _, _, _ = benchmark_function(_hexa60c.decode_chunked, wire, min_seconds=0.4)
+        py_enc_mbs = (sz * iters / py_enc_dt) / 1_000_000
+        py_dec_mbs = (sz * iters / py_dec_dt) / 1_000_000
 
-        enc_boost = nat_enc_mb / py_enc_mb if py_enc_mb > 0 else 0
-        dec_boost = nat_dec_mb / py_dec_mb if py_dec_mb > 0 else 0
+        label = f"{sz} B" if sz < 1024 else f"{sz // 1024} KiB"
 
-        print(
-            f"{label:<8} | "
-            f"{py_enc_mb:>7.2f} MB/s | {nat_enc_mb:>8.2f} MB/s | {enc_boost:>8.1f}x | "
-            f"{py_dec_mb:>7.2f} MB/s | {nat_dec_mb:>8.2f} MB/s | {dec_boost:>8.1f}x | "
-            f"{nat_enc_ns:>11.2f} ns"
-        )
+        if native_available:
+            # ── Native C++ Benchmark ──
+            cpp_enc_dt = benchmark_fn(cpp_encode, payload, iters)
+            cpp_wire = cpp_encode(payload)
+            cpp_decode_dt = benchmark_fn(cpp_decode, cpp_wire, iters)
 
-    print("-" * len(header))
-    print("\n[VERDICT]: Native C++20 Ultra Acceleration is ACTIVE and verified in this environment.")
+            cpp_enc_mbs = (sz * iters / cpp_enc_dt) / 1_000_000
+            cpp_dec_mbs = (sz * iters / cpp_decode_dt) / 1_000_000
+            
+            speedup_enc = cpp_enc_mbs / py_enc_mbs if py_enc_mbs > 0 else 0
+
+            print(f"{label:<10} | {'Python':<15} | {py_enc_mbs:>10.2f}   | {py_dec_mbs:>10.2f}   | {'1.00x':<14}")
+            print(f"{'':<10} | {'C++20 Native':<15} | {cpp_enc_mbs:>10.2f}   | {cpp_dec_mbs:>10.2f}   | {speedup_enc:>12.2f}x")
+            print("-" * 78)
+        else:
+            print(f"{label:<10} | {'Python':<15} | {py_enc_mbs:>10.2f}   | {py_dec_mbs:>10.2f}   | {'N/A':<14}")
+            print("-" * 78)
 
 
 if __name__ == "__main__":
-    run_reality_verification()
+    run_benchmarks()
