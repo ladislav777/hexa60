@@ -40,3 +40,9 @@ build_native/
 *.lib
 *.exp
 
+# Rust build artifacts (core-rust/).
+# NOTE: Cargo.lock is intentionally NOT ignored -- it pins thiserror 2.0.21
+# as audit evidence for the IP package.
+target/
+core-rust/target/
+

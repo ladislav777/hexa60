@@ -1,0 +1,16 @@
+[package]
+name = "hexa60-core"
+version = "1.0.1"
+edition = "2021"
+description = "HEXA-60: deterministic identifier-safe binary-to-text encoding (8 bytes -> 11 chars, 1.375x wire expansion)"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/ladislav777/hexa60"
+keywords = ["base60", "encoding", "codec"]
+categories = ["encoding", "no-std"]
+
+[lib]
+name = "hexa60_core"
+path = "src/lib.rs"
+
+[dependencies]
+thiserror = "2"
