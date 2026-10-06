@@ -1,0 +1,40 @@
+====================================================================================================
+HEXA-60 vs Base64 vs Base85 vs Base91 — rovnake datasety, rovnaka metodika
+python=3.14.6 arch=AMD64 HAS_NATIVE=True
+seed=20261005  MB/s = vstupne MB/s (orig bytes / cas)  best-of-N
+====================================================================================================
+
+>>> Dataset 1 MB (1000000 B vstup, repeats best-of-5) ...
+    sha256 vstup: d06c9f50ffe97a420039cdb9d562da2f...
+    HEXA-60: out=   1375000 B exp=1.37500x enc=  344.61 MB/s dec=  298.12 MB/s roundtrip=PASS
+    Base64 : out=   1333336 B exp=1.33334x enc=  269.48 MB/s dec=  378.39 MB/s roundtrip=PASS
+    Base85 : out=   1250000 B exp=1.25000x enc=    3.95 MB/s dec=    2.85 MB/s roundtrip=PASS
+    Base91 : out=   1229730 B exp=1.22973x enc=    2.00 MB/s dec=    1.24 MB/s roundtrip=PASS
+
+>>> Dataset 10 MB (10000000 B vstup, repeats best-of-3) ...
+    sha256 vstup: 3f4844bc9009b79c6856fb55842f0a01...
+    HEXA-60: out=  13750000 B exp=1.37500x enc=  260.61 MB/s dec=  200.34 MB/s roundtrip=PASS
+    Base64 : out=  13333336 B exp=1.33333x enc=  200.61 MB/s dec=  238.39 MB/s roundtrip=PASS
+
+>>> Dataset 100 MB (100000000 B vstup, repeats best-of-1) ...
+    sha256 vstup: 8fef2247c5e95536d5d40f9b1ba1be1e... (streamovane meranie)
+    HEXA-60: out= 137500000 B exp=1.37500x enc=  222.25 MB/s dec=  176.78 MB/s roundtrip=PASS
+    Base64 : out= 133333336 B exp=1.33333x enc=  120.40 MB/s dec=  197.17 MB/s roundtrip=PASS
+
+====================================================================================================
+SUHRN — vystup / expanzia / priepustnost (vstupne MB/s)
+ velkost | encoder | output size | expanzia | encode MB/s | decode MB/s | roundtrip
+----------------------------------------------------------------------------------------------------
+    1 MB | HEXA-60 |     1375000 |  1.3750x |      344.61 |      298.12 | PASS
+    1 MB | Base64  |     1333336 |  1.3333x |      269.48 |      378.39 | PASS
+    1 MB | Base85  |     1250000 |  1.2500x |        3.95 |        2.85 | PASS
+    1 MB | Base91  |     1229730 |  1.2297x |        2.00 |        1.24 | PASS
+   10 MB | HEXA-60 |    13750000 |  1.3750x |      260.61 |      200.34 | PASS
+   10 MB | Base64  |    13333336 |  1.3333x |      200.61 |      238.39 | PASS
+  100 MB | HEXA-60 |   137500000 |  1.3750x |      222.25 |      176.78 | PASS
+  100 MB | Base64  |   133333336 |  1.3333x |      120.40 |      197.17 | PASS
+----------------------------------------------------------------------------------------------------
+Teoreticke expanzie: HEXA-60 11/8=1.37500x (meratelne presne), Base64 4/3=1.33333x, Base85 5/4=1.25x, Base91 ~1.23x (datovo-zavisle).
+HEXA-60 engine v tomto behu: NATIVE C++20.
+USP signal: HEXA-60 kupuje +3.2 % miesta oproti Base64 (1.375 vs 1.333), ale predava bezpecnost abecedy: ziadne + / = " " ' \, prezije URL/header/token bez escapovania.
+====================================================================================================

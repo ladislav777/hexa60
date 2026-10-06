@@ -1,0 +1,33 @@
+# HEXA60 — Commercial IP Acquisition Notice
+
+Copyright (c) 2026 Ladislav Muller. All rights reserved.
+
+## 1. What this notice covers
+
+This repository is offered as a **Commercial IP Package**: a deterministic
+binary-to-text encoding technology (specification + Python reference
+implementation + header-only C++20 implementation + native nanobind
+accelerator + test suite + measured audit logs).
+
+## 2. Evaluation vs acquisition
+
+- **Evaluation:** you may clone, build (`python build_native.py`), run the
+  test suite (`pytest tests/`) and reproduce the audit logs in `benchmarks/`
+  for internal evaluation purposes only.
+- **Acquisition / commercial use:** any integration into proprietary or
+  closed-source products, SaaS, hardware appliances, redistribution, or
+  removal of this notice requires a **written Commercial / IP Assignment
+  agreement** with the rights holder.
+
+## 3. Dual-licensing background
+
+Unless covered by a commercial agreement, the code remains under the
+**GNU AGPLv3** terms stated in `LICENSE-v2.md` (copyleft applies, including
+network use). A commercial agreement replaces AGPL obligations with
+proprietary terms, or assigns the IP outright — subject to negotiation.
+
+## 4. Contact
+
+- **Rights holder:** Ladislav Muller
+- **Email:** `mullerladislav20@gmail.com`
+- **Technical summary for buyers:** see `ACQUISITION.md`.

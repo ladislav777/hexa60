@@ -1,0 +1,9 @@
+HW threads: 2
+n=1000000 MB
+  REF codec.hpp ST :   335.87 MB/s
+  HYPER single     :   514.40 MB/s  PASS (x1.53 vs REF)
+  HYPER jthread-2  :   411.00 MB/s  PASS (x1.22 vs REF)
+n=10000000 MB
+  REF codec.hpp ST :   248.15 MB/s
+  HYPER single     :   428.46 MB/s  PASS (x1.73 vs REF)
+  HYPER jthread-2  :   660.74 MB/s  PASS (x2.66 vs REF)

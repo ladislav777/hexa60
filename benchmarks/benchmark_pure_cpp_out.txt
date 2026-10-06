@@ -1,0 +1,36 @@
+[benchmark_pure_cpp] vcvars : C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\VC\Auxiliary\Build\vcvars64.bat
+[benchmark_pure_cpp] zdroj  : c:\BASE60\benchmark_native.cpp
+[benchmark_pure_cpp] kompilujem (MSVC /O2) ...
+benchmark_native.cpp
+[benchmark_pure_cpp] OK -> c:\BASE60\build_native\benchmark_native.exe
+[benchmark_pure_cpp] spustam cisty C++ benchmark ...
+--------------------------------------------------------------------------------
+================================================================================
+HEXA-60 vs Base64 vs Base85 vs Base91 — CISTY C++ vs C++ (MSVC /O2)
+rovnake buffery, warm-up 2x, best-of-N, MB/s = vstupne MB/s, FNV check
+================================================================================
+
+>>> Dataset 1 MB (1000000 B, warm-up 2x, best-of-5) ...
+    fnv vstup: 3a71d41f4dc05768
+    HEXA-60: out=   1375000 B exp=1.37500x enc=  331.20 MB/s dec=  268.95 MB/s PASS
+    Base64 : out=   1333336 B exp=1.33334x enc=  802.76 MB/s dec= 1103.02 MB/s PASS
+    Base85 : out=   1250000 B exp=1.25000x enc=  447.99 MB/s dec=  249.67 MB/s PASS
+    Base91 : out=   1229760 B exp=1.22976x enc=  234.46 MB/s dec=  220.83 MB/s PASS
+
+>>> Dataset 10 MB (10000000 B, warm-up 2x, best-of-3) ...
+    fnv vstup: 96de7b37f9bb5bfb
+    HEXA-60: out=  13750000 B exp=1.37500x enc=  244.79 MB/s dec=  155.50 MB/s PASS
+    Base64 : out=  13333336 B exp=1.33333x enc=  557.70 MB/s dec=  321.18 MB/s PASS
+
+=================================================================================
+SUHRN (cisty C++)
+      1MB | HEXA-60 |     1375000 |  1.3750x |      331.20 |      268.95 | PASS
+      1MB | Base64  |     1333336 |  1.3333x |      802.76 |     1103.02 | PASS
+      1MB | Base85  |     1250000 |  1.2500x |      447.99 |      249.67 | PASS
+      1MB | Base91  |     1229760 |  1.2298x |      234.46 |      220.83 | PASS
+     10MB | HEXA-60 |    13750000 |  1.3750x |      244.79 |      155.50 | PASS
+     10MB | Base64  |    13333336 |  1.3333x |      557.70 |      321.18 | PASS
+Teoria: HEXA-60 1.37500x, Base64 1.33333x, Base85 1.25x, Base91 ~1.23x.
+================================================================================
+--------------------------------------------------------------------------------
+[benchmark_pure_cpp] hotovo (rc=0)

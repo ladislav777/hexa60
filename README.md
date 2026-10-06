@@ -5,7 +5,7 @@
 [![C++ Standard](https://img.shields.io/badge/c%2B%2B-20-blue.svg)](cpp/)
 [![Code Style](https://img.shields.io/badge/code%20style-pep8-green.svg)](https://www.python.org/dev/peps/pep-0008/)
 
-**HEXA60** is a deterministic, high-performance binary-to-text encoding scheme engineered specifically for transport safety across modern network protocols, web APIs, biometrics, and database storage.
+> **Project identity.** HEXA-60 is a deterministic binary-to-text encoding technology that combines a fixed 8-byte-to-11-character mapping, a constrained identifier-safe alphabet, predictable 1.375× wire expansion, and native C++ throughput in the hundreds of MB/s, with 10,000/10,000 verified round trips across binary, UTF-8, JSON, CSV and edge-case datasets.
 
 Unlike traditional Base64 (which requires characters like `+`, `/`, and `=`) or
 Base58, HEXA60 uses an **identifier-safe 60-character alphabet**. It contains no
@@ -21,6 +21,45 @@ letters are also not part of the QR alphanumeric mode, so QR codes fall back to
 byte mode.
 
 ---
+
+## Trade-offs vs Base64 (measured, not marketed)
+
+HEXA-60 is **not** "faster than Base64". Pure C++-vs-C++ measurement
+(`benchmarks/benchmark_pure_cpp.py` + `benchmarks/benchmark_native.cpp`,
+MSVC `/O2`, same buffers, warm-up, best-of-N) shows:
+
+| Dataset | Encoder | Expansion | Encode MB/s | Decode MB/s | Round-trip |
+|---|---|---|---|---|---|
+| 1 MB | HEXA-60 | 1.3750x | 331.20 | 268.95 | PASS |
+| 1 MB | Base64 | 1.3333x | 802.76 | 1103.02 | PASS |
+| 1 MB | Base85 (C++) | 1.2500x | 447.99 | 249.67 | PASS |
+| 1 MB | Base91 (C++) | 1.2298x | 234.46 | 220.83 | PASS |
+| 10 MB | HEXA-60 | 1.3750x | 244.79 | 155.50 | PASS |
+| 10 MB | Base64 | 1.3333x | 557.70 | 321.18 | PASS |
+
+Base64 wins on raw throughput (bit shifts + lookup vs division/modulo 60).
+HEXA-60 is chosen where **transport safety beats raw speed**:
+
+- **No escaping in restrictive text environments** — the alphabet contains no
+  `+`, `/`, `=`, quotes, backslashes or whitespace, so values pass through
+  URL-unreserved contexts and HTTP header token rules without percent-encoding.
+  It does not replace SQL parameterisation, and `-` still needs care inside a
+  regex character class.
+- **Deterministic blocks** — every 8 bytes always become exactly 11 characters,
+  so output length is computable up front (`(n // 8) * 11 + TAIL[n % 8]`) and
+  the tail length is recoverable from `len(text) % 11` with no metadata.
+- **Predictable cost** — 1.375x wire expansion, exactly, on every full block
+  (+3.2 % of space vs Base64's 1.333x), in exchange for the alphabet above and
+  strict error reporting (`InvalidCharacterError` with position, `LengthError`).
+
+Python-level comparison on identical 1/10/100 MB datasets
+(`benchmarks/benchmark_encode.py`, native C++20 engine via `_hexa60c` vs
+stdlib) shows HEXA-60 encode at ~345/261/222 MB/s and decode at ~298/200/177
+MB/s with SHA-256 round-trip PASS everywhere; stdlib Base85 (`MemoryError`
+beyond 1 MB) and pure-Python Base91 (~2 MB/s) are not operationally comparable.
+Full logs: `benchmarks/benchmark_encode_out.txt`,
+`benchmarks/benchmark_pure_cpp_out.txt`. Verification: 10,000/10,000 SHA-256
+round trips in `benchmarks/verify_integrity.py`.
 
 ## Key Features
 

@@ -1,0 +1,2 @@
+exp_div60.cpp
+C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\VC\Tools\MSVC\14.50.35717\include\chrono(2381): warning C4530: C++ exception handler used, but unwind semantics are not enabled. Specify /EHsc

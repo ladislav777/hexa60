@@ -1,0 +1,12 @@
+n=1000000 full=125000
+  V0 aktualny (q=x/60, r=x%60, cyklus) :   381.83 MB/s
+  V1 fused divmod (r=x-q*60)            :   380.37 MB/s (x1.00)
+  V2 V1 + Lemire/Barrett (/60 -> mul)   :   403.84 MB/s (x1.06)
+  V3 V2 + plny unroll 11 krokov         :   413.62 MB/s (x1.08)
+  korektnost V0..V3 vs codec.hpp: PASS
+n=10000000 full=1250000
+  V0 aktualny (q=x/60, r=x%60, cyklus) :   299.10 MB/s
+  V1 fused divmod (r=x-q*60)            :   308.13 MB/s (x1.03)
+  V2 V1 + Lemire/Barrett (/60 -> mul)   :   293.28 MB/s (x0.98)
+  V3 V2 + plny unroll 11 krokov         :   323.19 MB/s (x1.08)
+  korektnost V0..V3 vs codec.hpp: PASS
